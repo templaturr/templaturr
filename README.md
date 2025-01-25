@@ -1,2 +1,3 @@
-# templaturr
-Unopionated and insanely fast templating engine
+# Templaturr
+
+Unopionated *blazing fast* templating engine
