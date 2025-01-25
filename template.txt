@@ -1,1 +1,0 @@
-Hello, my name is {[ name ]}, I am {[ age ]} years old and I work as a {[ profession ]}.
