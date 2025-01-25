@@ -4,6 +4,9 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 use regex::Regex;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::Write;
 
 #[derive(Parser, Debug)]
 #[command(name = "templaturr")]
@@ -24,6 +27,10 @@ struct CliArgs {
     /// Enables verbose logging
     #[arg(short, long, help = "Enable verbose logging")]
     verbose: bool,
+
+    // Flag to generate a cauldron.yaml based on the template files
+    #[arg(long, help = "Generate a cauldron.yaml file from the template")]
+    create_cauldron: bool,
 }
 
 fn main() {
@@ -33,7 +40,11 @@ fn main() {
         println!("Verbose mode enabled");
     }
 
-    // Determine data file path (default to cauldron.yaml if not provided)
+    if args.create_cauldron {
+        create_cauldron_file(&args.template);
+        return;
+    }
+
     let data_path = args.data.unwrap_or_else(|| "cauldron.yaml".to_string());
 
     if !Path::new(&data_path).exists() {
@@ -99,4 +110,49 @@ fn replace_variables(template: &str, data: &Value) -> String {
             _ => caps[0].to_string(),
         }
     }).to_string()
+}
+
+fn create_cauldron_file(template_path: &str) {
+    let mut placeholders: HashSet<String> = HashSet::new();
+    let re = Regex::new(r"\{\[\s*(\w+)\s*\]\}").unwrap();
+
+    let path = Path::new(template_path);
+    
+    if path.is_file() {
+        extract_placeholders_from_file(path, &re, &mut placeholders);
+    } else if path.is_dir() {
+        for entry in WalkDir::new(template_path).into_iter().filter_map(|e| e.ok()) {
+            if entry.path().is_file() {
+                extract_placeholders_from_file(entry.path(), &re, &mut placeholders);
+            }
+        }
+    } else {
+        eprintln!("Error: Invalid template path '{}'", template_path);
+        std::process::exit(1);
+    }
+
+    if placeholders.is_empty() {
+        println!("No placeholders found in template.");
+        return;
+    }
+
+    let mut yaml_data = String::new();
+    for placeholder in placeholders {
+        yaml_data.push_str(&format!("{}: \"REPLACE_ME\"\n", placeholder));
+    }
+
+    let mut file = File::create("cauldron.yaml").expect("Failed to create cauldron.yaml");
+    file.write_all(yaml_data.as_bytes()).expect("Failed to write to cauldron.yaml");
+
+    println!("Successfully created 'cauldron.yaml' with extracted variables.");
+}
+
+fn extract_placeholders_from_file(file_path: &Path, re: &Regex, placeholders: &mut HashSet<String>) {
+    let content = fs::read_to_string(file_path).expect("Failed to read template file");
+
+    for cap in re.captures_iter(&content) {
+        if let Some(var_name) = cap.get(1) {
+            placeholders.insert(var_name.as_str().to_string());
+        }
+    }
 }
