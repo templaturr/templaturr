@@ -8,4 +8,5 @@ clap = { version = "4.5.27", features = ["derive"] }
 regex = "1.11.1"
 serde = "1.0.217"
 serde_yaml = "0.9.34"
+thiserror = "2.0.12"
 walkdir = "2.5.0"
